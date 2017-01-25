@@ -92,7 +92,9 @@ function plane:update( )
 
 	-- particles
 	if lives <= 1 then
-		make_smoke(self.x + 8, self.y + 4)
+		for i=0,speed-1 do
+			make_smoke(self.x + 8 - i * (self.vx + speed) / speed, self.y + 4 - i * self.vy / speed)
+		end
 	end
 
 
@@ -177,7 +179,7 @@ function _init( )
 	plane.width = 16
 	plane.height = 8
 	t = 0
-	speed = 3
+	speed = 6
 	lives = 2
 	particles = {}
 	init_clouds()
