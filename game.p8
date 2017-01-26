@@ -92,7 +92,7 @@ function plane:update( )
 
 	-- particles
 	if lives <= 1 then
-		for i=0,speed-1 do
+		for i=0,speed-1,1.5 do
 			make_smoke(self.x + 8 - i * (self.vx + speed) / speed, self.y + 4 - i * self.vy / speed)
 		end
 	end
@@ -128,7 +128,7 @@ end
 local clouds_bg = {}
 local clouds_fg = {}
 function init_clouds( )
-	for i=0,17 do
+	for i=0,19 do
 		add(clouds_bg, {x = i * 8, y = rnd(8), r = rnd(8) + 6})
 		add(clouds_bg, {x = i * 8, y = 128 - rnd(8), r = rnd(8) + 6})
 		add(clouds_fg, {x = i * 8, y = rnd(8) - 4, r = rnd(8) + 4})
@@ -142,9 +142,9 @@ function update_clouds( )
 		if cloud.x <= -8 then
 			del(clouds_bg, cloud)
 			if cloud.y < 64 then
-				add(clouds_bg, {x = 17 * 8, y = rnd(8), r = rnd(8) + 6})
+				add(clouds_bg, {x = cloud.x % (20 * 8) + speed / 2, y = rnd(8), r = rnd(8) + 6})
 			else
-				add(clouds_bg, {x = 17 * 8, y = 128 - rnd(8), r = rnd(8) + 6})
+				add(clouds_bg, {x = cloud.x % (20 * 8) + speed / 2, y = 128 - rnd(8), r = rnd(8) + 6})
 			end
 		end
 	end
@@ -153,9 +153,9 @@ function update_clouds( )
 		if cloud.x <= -8 then
 			del(clouds_fg, cloud)
 			if cloud.y < 64 then
-				add(clouds_fg, {x = 17 * 8, y = rnd(8) - 4, r = rnd(8) + 4})
+				add(clouds_fg, {x = cloud.x % (20 * 8) + speed, y = rnd(8) - 4, r = rnd(8) + 4})
 			else
-				add(clouds_fg, {x = 17 * 8, y = 132 - rnd(8), r = rnd(8) + 4})
+				add(clouds_fg, {x = cloud.x % (20 * 8) + speed, y = 132 - rnd(8), r = rnd(8) + 4})
 			end
 		end
 	end
@@ -179,7 +179,7 @@ function _init( )
 	plane.width = 16
 	plane.height = 8
 	t = 0
-	speed = 6
+	speed = 60
 	lives = 2
 	particles = {}
 	init_clouds()
