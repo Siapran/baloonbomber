@@ -19,8 +19,11 @@ end
 function update_particles( )
 	for particle in all(particles) do
 		particle:update()
-		if particle.ttl and particle.ttl < 0 then
-			del_particle(particle)
+		if particle.ttl then
+			particle.ttl -= 1
+			if particle.ttl < 0 then
+				del_particle(particle)
+			end
 		end
 		if particle.x < -8 or particle.x >= 136
 			or particle.y < -8 or particle.y >= 136 then
@@ -29,41 +32,79 @@ function update_particles( )
 	end
 end
 
+local particles_fg
+
 function draw_particles( )
+	particles_fg = {}
 	for particle in all(particles) do
+		if not particle.fg then
+			particle:draw()
+		else
+			add(particles_fg, particle)
+		end
+	end
+end
+
+function draw_particles_fg( )
+	for particle in all(particles_fg) do
 		particle:draw()
 	end
 end
 
-function make_smoke( x, y)
-	local res = { x = x, y = y, r = 2 }
-	function res:update( )
+function make_smoke( x, y )
+	local smoke = { x = x, y = y, r = 2 }
+	function smoke:update( )
 		self.x -= speed
 		self.y -= 1/2
 		self.r += 1/4
 		self.x += rnd(2) - 1
 		self.y += rnd(2) - 1
 	end
-	function res:draw( )
+	function smoke:draw( )
 		circfill(self.x, self.y, self.r, 0)
 	end
-	add_particle(res)
+	add_particle(smoke)
+end
+
+local explosion_colors = { 0, 7, 10, 9, 2, 1 }
+
+function make_explosion( x, y, r )
+	local explosion = { x = x, y = y, r = r, ttl = 10, fg = true }
+	function explosion:update( )
+		if self.ttl < 5 then
+			self.x -= speed
+			make_smoke(self.x + rnd(2) - 1, self.y + rnd(2) - 1)
+		end
+	end
+	function explosion:draw( )
+		circfill(self.x, self.y, self.r * min(self.ttl / 8, 1), explosion_colors[11 - self.ttl] or 0)
+	end
+	add_particle(explosion)
 end
 
 function plane:draw( )
 	sprite_num = 0
-	if self.vy > 1 then sprite_num = 2 end
-	if self.vy < -1 then sprite_num = 4 end
+	if lives > 0 then
+		if self.vy > 1 then sprite_num = 2 end
+		if self.vy < -1 then sprite_num = 4 end
+	else
+		if sin(t/60) > 2/3 then sprite_num = 2 end
+		if sin(t/60) < -2/3 then sprite_num = 4 end
+	end
 	spr(sprite_num, self.x, self.y - 4, 2, 2)
 end
 
 function plane:update( )
 	
 	-- controls
-	if btn(0) then self.vx -= 1 end
-	if btn(1) then self.vx += 1 end
-	if btn(2) then self.vy -= 1 end
-	if btn(3) then self.vy += 1 end
+	if lives > 0 then
+		if btn(0) then self.vx -= 1 end
+		if btn(1) then self.vx += 1 end
+		if btn(2) then self.vy -= 1 end
+		if btn(3) then self.vy += 1 end
+	else
+		self.vy = 1
+	end
 
 	-- make the plane oscillate a bit
 	self.vy += sin(t / 30) / 10
@@ -75,15 +116,17 @@ function plane:update( )
 	-- basic physics and bound checking
 	local x = self.x + self.vx
 	local y = self.y + self.vy
-	x_max = 128 - self.width
-	y_max = 128 - self.height
-	if x < 0 or x >= x_max then
-		x = flr(self.x / x_max + 0.5) * x_max
-		self.vx = 0
-	end
-	if y < 0 or y >= y_max then
-		y = flr(self.y / y_max + 0.5) * y_max
-		self.vy = 0
+	if lives > 0 then
+		local x_max = 128 - self.width
+		local y_max = 128 - self.height
+		if x < 0 or x >= x_max then
+			x = flr(self.x / x_max + 0.5) * x_max % 128
+			self.vx = 0
+		end
+		if y < 0 or y >= y_max then
+			y = flr(self.y / y_max + 0.5) * y_max % 128
+			self.vy = 0
+		end
 	end
 	self.x = x
 	self.y = y
@@ -92,12 +135,15 @@ function plane:update( )
 
 	-- particles
 	if lives <= 1 then
-		for i=0,speed-1,1.5 do
+		for i=0,speed,1.5 do
 			make_smoke(self.x + 8 - i * (self.vx + speed) / speed, self.y + 4 - i * self.vy / speed)
 		end
+		if lives <= 0 then
+			if flr(rnd(6)) == 0 then
+				make_explosion(self.x + rnd(16), self.y + rnd(8), rnd(4) + 2)
+			end
+		end
 	end
-
-
 end
 
 function print_bordered( string, x, y, fc, bc )
@@ -171,6 +217,36 @@ function draw_sky( )
 	end
 end
 
+function collides( self, other )
+	return abs(self.x - other.x) < self.width + other.width
+		and abs(self.y - other.y) < self.height + other.height
+end
+
+
+local bombs
+
+function make_bomb( x, y )
+	local bomb = {
+		x = x,
+		y = y,
+		width = 6,
+		height = 6,
+		baloon = {
+			x = x - 1,
+			y = y - 11,
+			width = 8,
+			height = 8
+		}
+	}
+	function bomb:update( )
+		self.x -= speed
+		-- if collides(self, plane) then
+
+	end
+
+end
+
+
 function _init( )
 	plane.x = 64 - 8
 	plane.y = 64 - 4
@@ -179,9 +255,10 @@ function _init( )
 	plane.width = 16
 	plane.height = 8
 	t = 0
-	speed = 60
+	speed = 5
 	lives = 2
 	particles = {}
+	bombs = {}
 	init_clouds()
 end
 
@@ -198,6 +275,7 @@ function _draw( )
 	draw_sky()
 	draw_particles()
 	plane:draw()
+	draw_particles_fg()
 	display_hud()
 end
 
