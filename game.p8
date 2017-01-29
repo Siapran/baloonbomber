@@ -277,11 +277,11 @@ end
 function collides( self, other )
 	local res = self.x < other.x + other.width and self.x + self.width > other.x and
     self.y < other.y + other.height and self.y + self.height > other.y
-	if res then
-		printh("(" .. flr(self.x) .. "," .. flr(self.y) .. ")[" .. flr(self.width) .. "," .. flr(self.height) .. "]"
-			.. " VS " ..
-			"(" .. flr(other.x) .. "," .. flr(other.y) .. ")[" .. flr(other.width) .. "," .. flr(other.height) .. "]")
-	end
+	-- if res then
+	-- 	printh("(" .. flr(self.x) .. "," .. flr(self.y) .. ")[" .. flr(self.width) .. "," .. flr(self.height) .. "]"
+	-- 		.. " VS " ..
+	-- 		"(" .. flr(other.x) .. "," .. flr(other.y) .. ")[" .. flr(other.width) .. "," .. flr(other.height) .. "]")
+	-- end
 	return res
 end
 
