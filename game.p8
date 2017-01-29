@@ -2,11 +2,18 @@ pico-8 cartridge // http://www.pico-8.com
 version 8
 __lua__
 
+-- GLOBALS
+
 local t
 local speed
 local plane = {}
 local lives
 local particles
+local particles_fg
+local gravity = 1
+
+
+-- PARTICLE MANAGEMENT
 
 function add_particle( particle )
 	add(particles, particle)
@@ -32,8 +39,6 @@ function update_particles( )
 	end
 end
 
-local particles_fg
-
 function draw_particles( )
 	particles_fg = {}
 	for particle in all(particles) do
@@ -50,6 +55,9 @@ function draw_particles_fg( )
 		particle:draw()
 	end
 end
+
+
+-- PARTICLE GENERATORS
 
 function make_smoke( x, y )
 	local smoke = { x = x, y = y, r = 2 }
@@ -81,6 +89,46 @@ function make_explosion( x, y, r )
 	end
 	add_particle(explosion)
 end
+
+function make_pop( x, y )
+	-- tempted to just closure this one but it would break 
+	-- everything I did before
+	local pop = { x = x, y = y, ttl = 5, fg = true }
+	function pop:update( )
+		-- nothing: ttl is updated by particle manager
+		-- but we need an empty function because I'm too
+		-- lazy to null-check every single method call
+	end
+	function pop:draw( )
+		spr(10, self.x, self.y)
+	end
+	add_particle(pop)
+end
+
+function make_spark_cluster( x, y, amount, spread )
+	local cluster = { sparks = {}, ttl = 15, fg = true }
+	for i=1,amount do
+		add(self.sparks, { x = x, y = y, vx = rnd(2 * spread) - spread, vy = -rnd(spread)})
+	end
+	function cluster:update( )
+		for spark in all(self.sparks) do
+			spark.vy += gravity
+			spark.vx *= 0.95
+			spark.vy *= 0.95
+			spark.x += spark.vx
+			spark.y += spark.vy
+		end
+	end
+	function cluster:draw( )
+		for spark in all(self.sparks) do
+			pset(spark.x, spark.y, 10)
+		end
+	end
+	add_particle(cluster)
+end
+
+
+-- PLANE
 
 function plane:draw( )
 	sprite_num = 0
@@ -146,6 +194,9 @@ function plane:update( )
 	end
 end
 
+
+-- HUD
+
 function print_bordered( string, x, y, fc, bc )
 	for i=-1,1 do
 		for j=-1,1 do
@@ -170,6 +221,8 @@ function display_hud( )
 	end
 end
 
+
+-- SKY
 
 local clouds_bg = {}
 local clouds_fg = {}
@@ -217,11 +270,13 @@ function draw_sky( )
 	end
 end
 
+
+-- BOMBS
+
 function collides( self, other )
 	return abs(self.x - other.x) < self.width + other.width
 		and abs(self.y - other.y) < self.height + other.height
 end
-
 
 local bombs
 
@@ -240,12 +295,16 @@ function make_bomb( x, y )
 	}
 	function bomb:update( )
 		self.x -= speed
-		-- if collides(self, plane) then
+		if collides(self, plane) then
+			make_explosion(self.x + 3, self.y + 3, 8)
 
+		end
 	end
 
 end
 
+
+-- GAME LOGIC
 
 function _init( )
 	plane.x = 64 - 8
