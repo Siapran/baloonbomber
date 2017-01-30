@@ -1,8 +1,10 @@
 pico-8 cartridge // http://www.pico-8.com
-version 8
+version 10
 __lua__
+-- baloon bomber
+-- a simple sidescroller
 
--- GLOBALS
+-- globals
 
 local t
 local speed
@@ -11,9 +13,10 @@ local lives
 local particles
 local particles_fg
 local gravity = 0.4
+local score
 
 
--- PARTICLE MANAGEMENT
+-- particle management
 
 function add_particle( particle )
 	add(particles, particle)
@@ -57,7 +60,7 @@ function draw_particles_fg( )
 end
 
 
--- PARTICLE GENERATORS
+-- particle generators
 
 function make_smoke( x, y )
 	local smoke = { x = x, y = y, r = 2 }
@@ -81,7 +84,7 @@ function make_explosion( x, y, r )
 	function explosion:update( )
 		if self.ttl < 5 then
 			self.x -= speed
-			make_smoke(self.x + rnd(2) - 1, self.y + rnd(2) - 1)
+			make_smoke(self.x + rnd(self.r) - self.r / 2, self.y + rnd(self.r) - self.r / 2)
 		end
 	end
 	function explosion:draw( )
@@ -92,11 +95,11 @@ end
 
 function make_pop( x, y )
 	-- tempted to just closure this one but it would break 
-	-- everything I did before
+	-- everything i did before
 	local pop = { x = x, y = y, ttl = 3, fg = true }
 	function pop:update( )
 		-- nothing: ttl is updated by particle manager
-		-- but we need an empty function because I'm too
+		-- but we need an empty function because i'm too
 		-- lazy to null-check every single method call
 	end
 	function pop:draw( )
@@ -108,13 +111,14 @@ end
 function make_spark_cluster( x, y, amount, spread )
 	local cluster = { sparks = {}, ttl = 15, fg = true }
 	for i=1,amount do
-		add(cluster.sparks, { x = x, y = y, vx = rnd(2 * spread) - spread, vy = -rnd(spread)})
+		add(cluster.sparks, { x = x, y = y, vx = rnd(2 * spread) - spread, vy = -2 * rnd(spread)})
 	end
 	function cluster:update( )
 		for spark in all(self.sparks) do
 			spark.vy += gravity
 			spark.vx *= 0.95
 			spark.vy *= 0.95
+			spark.x -= speed * min(8 / self.ttl, 1)
 			spark.x += spark.vx
 			spark.y += spark.vy
 		end
@@ -128,7 +132,7 @@ function make_spark_cluster( x, y, amount, spread )
 end
 
 
--- PLANE
+-- plane
 
 function plane:draw( )
 	sprite_num = 0
@@ -196,7 +200,7 @@ function plane:update( )
 end
 
 
--- HUD
+-- hud
 
 function print_bordered( string, x, y, fc, bc )
 	for i=-1,1 do
@@ -223,7 +227,7 @@ function display_hud( )
 end
 
 
--- SKY
+-- sky
 
 local clouds_bg = {}
 local clouds_fg = {}
@@ -249,13 +253,13 @@ function update_clouds( )
 		end
 	end
 	for cloud in all(clouds_fg) do
-		cloud.x -= speed
+		cloud.x -= speed * 3 / 4
 		if cloud.x <= -8 then
 			del(clouds_fg, cloud)
 			if cloud.y < 64 then
-				add(clouds_fg, {x = cloud.x % (20 * 8) + speed, y = rnd(8) - 4, r = rnd(8) + 4})
+				add(clouds_fg, {x = cloud.x % (20 * 8) + speed * 3 / 4, y = rnd(8) - 4, r = rnd(8) + 4})
 			else
-				add(clouds_fg, {x = cloud.x % (20 * 8) + speed, y = 132 - rnd(8), r = rnd(8) + 4})
+				add(clouds_fg, {x = cloud.x % (20 * 8) + speed * 3 / 4, y = 132 - rnd(8), r = rnd(8) + 4})
 			end
 		end
 	end
@@ -272,14 +276,14 @@ function draw_sky( )
 end
 
 
--- UTILITIES
+-- utilities
 
 function collides( self, other )
 	local res = self.x < other.x + other.width and self.x + self.width > other.x and
     self.y < other.y + other.height and self.y + self.height > other.y
 	-- if res then
 	-- 	printh("(" .. flr(self.x) .. "," .. flr(self.y) .. ")[" .. flr(self.width) .. "," .. flr(self.height) .. "]"
-	-- 		.. " VS " ..
+	-- 		.. " vs " ..
 	-- 		"(" .. flr(other.x) .. "," .. flr(other.y) .. ")[" .. flr(other.width) .. "," .. flr(other.height) .. "]")
 	-- end
 	return res
@@ -293,7 +297,7 @@ function hitbox( object, colour )
 	rect(object.x, object.y, object.x + object.width, object.y + object.height, colour)
 end
 
--- BOMBS
+-- bombs
 
 local bombs
 
@@ -315,7 +319,8 @@ function make_bomb( x, y )
 		y = y,
 		width = 6,
 		height = 6,
-		baloon = true
+		baloon = true,
+		blink_t = 0
 	}
 	function bomb:update( )
 		if self.x < -8 or self.y > 136 then
@@ -334,14 +339,15 @@ function make_bomb( x, y )
 		end
 		if collides(self, plane) then
 			make_explosion(self.x + 3, self.y + 3, 8)
-			make_spark_cluster(self.x + 3, self.y + 3, 8, 1)
-			lives -= 1
+			make_spark_cluster(self.x + 3, self.y + 3, 8, 2)
+			-- lives -= 1
 			del(bombs, self)
 		end
+		self.blink_t += 4 / distance(self, plane)
 	end
 	function bomb:draw( )
 		local sprnum = 8
-		if sin(t / distance(self, plane)) > 0.5 then
+		if sin(self.blink_t) > 0.7 then
 			sprnum += 16
 		end
 		if self.baloon then
@@ -356,7 +362,7 @@ function make_bomb( x, y )
 	add(bombs, bomb)
 end
 
--- GAME LOGIC
+-- game logic
 
 function _init( )
 	plane.x = 64 - 8
@@ -366,7 +372,8 @@ function _init( )
 	plane.width = 16
 	plane.height = 8
 	t = 0
-	speed = 1.5
+	score = 0
+	speed = 2
 	lives = 2
 	particles = {}
 	bombs = {}
@@ -374,7 +381,7 @@ function _init( )
 end
 
 function _update( )
-	if t % flr(speed * 10) == 0 then
+	if t % abs(flr(30 / speed)) == 0 then
 		make_bomb(130, rnd(122))
 	end
 
@@ -409,8 +416,8 @@ __gfx__
 0ff00004444440040000000444444004000000044f7f400400000000000000000040f4000000f000077777700000000000000000000000000000000000000000
 000000000f7f00040000000000f000040000000000f0000400000000000000000046640000066000ff7777ff0000000000000000000000000000000000000000
 0000000000f000000000000000000000000000000000000000000000077770000088880000888800444444440000000000000000000000000000000000000000
-000000000000000000000000000000000000000000000000000000007777770008888880088888807f4f7f4f0000000000000000000000000000000000000000
-00000000000000000000000000000000000000000000000000770077777777000288882002888820f4f4f4f40000000000000000000000000000000000000000
+00000000000000000000000000000000000000000000000000000000777777000888888008888880744f7f4f0000000000000000000000000000000000000000
+000000000000000000000000000000000000000000000000007700777777770002888820028888204ff4f4f40000000000000000000000000000000000000000
 00000000000000000000000000000000000000000000000007777777ff777f000022220000222200044444400000000000000000000000000000000000000000
 000000000000000000000000000000000000000000000000fffffffffffff000000220000002200004ffff400000000000000000000000000000000000000000
 0aaaaa000aaaaa00aa000aa00aaaaaa0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
